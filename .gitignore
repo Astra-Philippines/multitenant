@@ -6,4 +6,5 @@ pkg/*
 # test files
 spec/*.log
 spec/*.sqlite3
+.rvmrc
 
