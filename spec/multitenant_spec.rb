@@ -19,10 +19,22 @@ ActiveRecord::Schema.define(:version => 1) do
     t.column :name, :string
     t.column :tenant_id, :integer
   end
+
+  create_table :bookkeepers, :force => true do |t|
+    t.column :name, :string
+  end
+
+  create_table :books, :force => true do |t|
+    t.column :name, :string
+    t.column :company_id, :integer
+    t.column :bookkeeper_id, :integer
+  end
 end
 
 class Company < ActiveRecord::Base
   has_many :users
+  has_many :books
+  has_multitenant
 end
 class User < ActiveRecord::Base
   belongs_to :company
@@ -31,48 +43,63 @@ end
 
 class Tenant < ActiveRecord::Base
   has_many :items
+  has_multitenant
 end
 class Item < ActiveRecord::Base
   belongs_to :tenant
   belongs_to_multitenant
 end
 
-describe Multitenant do
-  after { Multitenant.current_tenant = nil }
+class Bookkeeper < ActiveRecord::Base
+  has_many :books
+  has_multitenant
+end
+class Book < ActiveRecord::Base
+  belongs_to :company
+  belongs_to_multitenant :company
+  belongs_to :bookkeeper
+  belongs_to_multitenant :bookkeeper
+end
 
-  describe 'Multitenant.current_tenant' do
-    before { Multitenant.current_tenant = :foo }
-    it { Multitenant.current_tenant == :foo }
+describe Multitenant do
+  after do 
+    Company.current_tenant = nil
+    Tenant.current_tenant = nil
   end
 
-  describe 'Multitenant.with_tenant block' do
+  describe 'Company.current_tenant' do
+    before { Company.current_tenant = :foo }
+    it { Company.current_tenant == :foo }
+  end
+
+  describe 'Company.with_tenant block' do
     before do
       @executed = false
-      Multitenant.with_tenant :foo do
-        Multitenant.current_tenant.should == :foo
+      Company.with_tenant :foo do
+        Company.current_tenant.should == :foo
         @executed = true
       end
     end
     it 'clears current_tenant after block runs' do
-      Multitenant.current_tenant.should == nil
+      Company.current_tenant.should == nil
     end
     it 'yields the block' do
       @executed.should == true
     end    
   end
 
-  describe 'Multitenant.with_tenant block that raises error' do
+  describe 'Company.with_tenant block that raises error' do
     before do
       @executed = false
       lambda {
-        Multitenant.with_tenant :foo do
+        Company.with_tenant :foo do
           @executed = true
           raise 'expected error'
         end
       }.should raise_error('expected error')
     end
     it 'clears current_tenant after block runs' do
-      Multitenant.current_tenant.should == nil
+      Company.current_tenant.should == nil
     end
     it 'yields the block' do
       @executed.should == true
@@ -86,7 +113,7 @@ describe Multitenant do
 
       @user = @company.users.create! :name => 'bob'
       @user2 = @company2.users.create! :name => 'tim'
-      Multitenant.with_tenant @company do
+      Company.with_tenant @company do
         @users = User.all
       end
     end
@@ -101,7 +128,7 @@ describe Multitenant do
 
       @item = @tenant.items.create! :name => 'baz'
       @item2 = @tenant2.items.create! :name => 'booz'
-      Multitenant.with_tenant @tenant do
+      Tenant.with_tenant @tenant do
         @items = Item.all
       end
     end
@@ -113,12 +140,51 @@ describe Multitenant do
   describe 'creating new object when current_tenant is set' do
     before do
       @company = Company.create! :name => 'foo'
-      Multitenant.with_tenant @company do
+      Company.with_tenant @company do
         @user = User.create! :name => 'jimmy'
       end
     end
     it 'should auto_populate the company' do
       @user.company_id.should == @company.id
+    end
+  end
+
+  describe 'Book.all when multiple current_tenant is set' do
+    before do
+      @foo = Company.create!(:name => 'foo')
+      @bar = Company.create!(:name => 'bar')
+
+      @pedro = Bookkeeper.create!(:name => 'pedro')
+      @maria = Bookkeeper.create!(:name => 'maria')
+
+      @book = @foo.books.create! :bookkeeper => @pedro
+      @book2 = @maria.books.create! :company => @bar
+      @book3 = @foo.books.create! :bookkeeper => @maria
+      @book4 = @pedro.books.create! :company => @bar
+      
+    end
+    it "should return 1 if both are set" do
+      Company.with_tenant @foo do
+        Bookkeeper.with_tenant @maria do
+          @books = Book.all
+        end
+      end
+      @books.length.should == 1
+      @books.should == [@book3]
+    end
+    it "should return 2 if only company are set" do
+      Company.with_tenant @foo do
+        @books = Book.order("id").all
+      end
+      @books.length.should == 2
+      @books.should == [@book, @book3]
+    end
+    it "should return 2 if only company are set" do
+      Bookkeeper.with_tenant @maria do
+        @books = Book.order("id").all
+      end
+      @books.length.should == 2
+      @books.should == [@book2, @book3]
     end
   end
 end
