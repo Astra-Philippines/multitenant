@@ -16,6 +16,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency(%q<activerecord>, ['>= 3.1'])
 
+  s.add_dependency('activesupport', ['>= 3.1'])
   s.add_development_dependency('rake')
   s.add_development_dependency('sqlite3', ["~> 1.3.3"])
   s.add_development_dependency('rspec', ['~> 2.6.0'])
