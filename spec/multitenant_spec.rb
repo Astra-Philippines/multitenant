@@ -163,7 +163,7 @@ describe Multitenant do
       @book4 = @pedro.books.create! :company => @bar
       
     end
-    it "should return 1 if both are set" do
+    it "should return 1 record if both Company and Bookeeper are set" do
       Company.with_tenant @foo do
         Bookkeeper.with_tenant @maria do
           @books = Book.all
@@ -172,14 +172,14 @@ describe Multitenant do
       @books.length.should == 1
       @books.should == [@book3]
     end
-    it "should return 2 if only company are set" do
+    it "should return 2 records if only Company is set" do
       Company.with_tenant @foo do
         @books = Book.order("id").all
       end
       @books.length.should == 2
       @books.should == [@book, @book3]
     end
-    it "should return 2 if only company are set" do
+    it "should return 2 records if only Bookkeeper is set" do
       Bookkeeper.with_tenant @maria do
         @books = Book.order("id").all
       end

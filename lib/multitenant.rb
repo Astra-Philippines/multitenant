@@ -33,7 +33,7 @@ module Multitenant
       raise Multitenant::MultitenantException.new("Options for has_multitenant must be in a hash.") unless options.is_a? Hash
       options.each do |key, value|
         unless [:thread_local].include? key
-          raise Ancestry::AncestryException.new("Unknown option for has_ancestry: #{key.inspect} => #{value.inspect}.")
+          raise Multitenant::MultitenantException.new("Unknown option for has_ancestry: #{key.inspect} => #{value.inspect}.")
         end
       end
 
